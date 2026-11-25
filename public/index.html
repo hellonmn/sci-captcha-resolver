@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OCR Response Viewer</title>
+  <style>
+    :root{color-scheme:light;--ink:#15233b;--muted:#65738a;--line:#dce4ee;--blue:#245ce2;--paper:#f4f7fb;--white:#fff}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    header{background:linear-gradient(115deg,#122b55,#245ce2);color:white;padding:11px max(20px,calc((100vw - 1320px)/2 + 20px));display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}h1{margin:0;font-size:18px;letter-spacing:-.02em}header span{font-size:13px;color:#dce7ff}
+    main{max-width:1320px;margin:16px auto;padding:0 20px 40px;display:grid;gap:16px}
+    .card{background:var(--white);border:1px solid var(--line);border-radius:15px;box-shadow:0 5px 20px #18335b0a;overflow:hidden}.card-head{padding:14px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.card-head h2{font-size:16px;margin:0}.card-body{padding:18px}
+    .top{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start}
+    .preview{min-height:150px;height:150px;background:#f7f9fc;border:1px dashed #cad5e4;border-radius:10px;display:grid;place-items:center;overflow:hidden;color:#75829a;font-size:13px;text-align:center;padding:6px}.preview img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+    .field{display:block;font-size:12px;font-weight:700;margin-bottom:5px;color:#334969}
+    input,select{width:100%;border:1px solid #cdd7e4;border-radius:9px;background:#fff;color:var(--ink);font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;padding:9px 11px;outline:none}input:focus,select:focus{border-color:#6b91f0;box-shadow:0 0 0 3px #245ce21c}
+    .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:12px}.fields small{display:block;color:var(--muted);font-size:11px;margin-top:3px;min-height:16px;overflow-wrap:anywhere}
+    button{border:0;border-radius:9px;background:var(--blue);color:white;font-weight:700;padding:10px 15px;cursor:pointer}button:hover{background:#1949c0}button:disabled{opacity:.55;cursor:default}.actions{display:flex;gap:9px;align-items:center;margin-top:12px;flex-wrap:wrap}.secondary{background:#edf2fa;color:#334969}.secondary:hover{background:#dfe8f5}
+    .mini{padding:6px 11px;font-size:12px;border-radius:7px;background:#edf2fa;color:#334969}.mini:hover{background:#dfe8f5}.mini.primary{background:var(--blue);color:#fff}.mini.primary:hover{background:#1949c0}
+    .status{font-size:13px;color:var(--muted);flex:1;min-width:180px}.status.error{color:#ad2c2c}.status.ok{color:#165e54}.note{font-size:12px;color:var(--muted);margin-top:8px}.note.error{color:#ad2c2c}
+    .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}.stat{background:#f4f7fc;border:1px solid #e6ecf4;border-radius:10px;padding:9px 12px;min-width:0}.stat .label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}.stat .value{display:block;font-size:18px;font-weight:750;overflow-wrap:anywhere}.stat .small{font-size:14px}
+    .pred{margin:0 0 12px}.pred summary,details>summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)}.predictions{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 0}.chip{border:1px solid #dce5f1;background:white;border-radius:7px;padding:3px 7px;min-width:40px;text-align:center}.chip b{font-size:13px}.chip small{display:block;color:var(--muted);font-size:9px;line-height:1.2}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 8px;font-size:13px;font-weight:750}.tools{display:flex;gap:6px;align-items:center;font-weight:400;color:var(--muted)}
+    .result{border:1px solid var(--line);border-radius:10px;min-height:320px;overflow-x:auto;background:#fff}.result .empty{min-height:320px}
+    .result table{border-collapse:collapse;width:100%;font-size:13px}.result th,.result td{border:1px solid #dce3ec;padding:8px 10px;text-align:left;vertical-align:top}.result th{background:#eff4fb}.result tr:nth-child(even){background:#fafbfd}.result h1,.result h2,.result h3,.result h4{font-size:15px;margin:12px 10px 6px}.result p,.result li{margin:6px 10px}
+    .empty{display:grid;place-items:center;text-align:center;color:#8793a6;padding:24px}
+    pre{background:#f4f7fc;border:1px solid #e6ecf4;border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+    .card.visible{overflow:visible}.combo{position:relative}
+    .menu{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:300px;overflow-y:auto;margin:0;padding:4px;list-style:none;background:#fff;border:1px solid #cdd7e4;border-radius:10px;box-shadow:0 12px 32px #18335b26;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+    .menu li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px}.menu li.active{background:#edf2ff}.menu li .code{color:var(--muted);font-size:12px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;flex:none}.menu li.none{color:var(--muted);cursor:default;font-size:12px}.menu li.none:hover{background:none}
+    .modal{position:fixed;inset:0;z-index:100;background:#fff;display:flex;flex-direction:column}.modal[hidden]{display:none}
+    .modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:linear-gradient(115deg,#122b55,#245ce2);color:#fff}.modal-head h2{margin:0;font-size:17px}
+    .modal-head button{background:#ffffff26;color:#fff}.modal-head button:hover{background:#ffffff40}
+    .modal-body{flex:1;overflow:auto;padding:20px;background:var(--paper)}.modal-body .msg{display:grid;place-items:center;min-height:50vh;color:var(--muted);text-align:center}.modal-body .msg.error{color:#ad2c2c}
+    .modal-body h3,.modal-body h4{text-align:center;text-transform:uppercase;margin:6px 0}.modal-body h3{font-size:20px}.modal-body h4{font-size:15px;color:#334969;margin-bottom:16px}
+    .modal-body table{width:100%;border-collapse:collapse;background:#fff;margin-bottom:14px;font-size:14px}.modal-body th,.modal-body td{border:1px solid #dce3ec;padding:9px 12px;text-align:left;vertical-align:top}.modal-body th{background:#eff4fb}.case-main td:first-child{width:22%;font-weight:600;background:#fafbfd}
+    .case-sections{margin-top:6px}.sections-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 10px;font-weight:750}
+    .tab{background:#fff;border:1px solid #dce3ec;border-radius:10px;margin-bottom:8px}.tab>summary{padding:11px 14px;cursor:pointer;font-weight:650;font-size:14px;color:var(--ink)}
+    .tab-body{padding:0 14px 14px;overflow-x:auto;font-size:14px}.tab-body .tab-msg{color:var(--muted);padding:4px 0}.tab-body .tab-msg.error{color:#ad2c2c}.tab-body table{margin-bottom:0}
+
+    /* Loading spinner */
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #dce4ee;
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-box {
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media(max-width:800px){.top{grid-template-columns:1fr}.preview{height:130px;min-height:130px}.summary{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>OCR response viewer</h1>
+    <span>Paste an image URL, then click Solve captcha.</span>
+  </header>
+  <main>
+    <section class="card visible">
+      <div class="card-body top">
+        <div>
+          <div id="imagePreview" class="preview"><span>Captcha image appears here</span></div>
+          <div id="imgNote" class="note"></div>
+        </div>
+        <div>
+          <label class="field" for="imageUrl">Captcha image URL</label>
+          <input id="imageUrl" type="url"
+            value="https://www.sci.gov.in/?_siwp_captcha&id=dff2271c8e35bacdca94944fe1ff314fbea059eb"
+            placeholder="https://example.com/image.png" autocomplete="off">
+          <div class="fields">
+            <div>
+              <label class="field" for="partyType">Petitioner / Respondent</label>
+              <select id="partyType"><option value="any">Any</option></select>
+            </div>
+            <div>
+              <label class="field" for="aorInput">AOR name</label>
+              <div class="combo">
+                <input id="aorInput" type="text" value="2357" autocomplete="off" spellcheck="false"
+                  placeholder="Search by name or code" role="combobox" aria-expanded="false"
+                  aria-controls="aorMenu" aria-autocomplete="list">
+                <ul id="aorMenu" class="menu" role="listbox" hidden></ul>
+              </div>
+              <small id="aorName"></small>
+            </div>
+            <div>
+              <label class="field" for="year">Year</label>
+              <select id="year"><option value="2026">2026</option></select>
+            </div>
+            <div>
+              <label class="field" for="caseStatus">Case status</label>
+              <select id="caseStatus"><option value="P">Pending</option></select>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="solveButton" type="button">Solve captcha</button>
+            <button id="clearButton" class="secondary" type="button">Clear</button>
+            <div id="status" class="status" role="status"></div>
+          </div>
+          <div id="formNote" class="note">Loading form options…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Result</h2></div>
+      <div class="card-body">
+        <div class="summary">
+          <div class="stat">
+            <span class="label">Predicted expression</span>
+            <span class="value" id="expression">—</span>
+          </div>
+          <div class="stat">
+            <span class="label">Calculation</span>
+            <span class="value" id="calculation">—</span>
+          </div>
+          <div class="stat">
+            <span class="label">Upstream status</span>
+            <span class="value" id="upstream">—</span>
+          </div>
+        </div>
+        <details class="pred">
+          <summary id="predSummary">Character predictions</summary>
+          <div class="predictions" id="predictions">
+            <div class="empty">No prediction data yet.</div>
+          </div>
+        </details>
+        <div class="row">
+          <span>Case table <span id="rowCount" style="font-weight:400;color:var(--muted)"></span></span>
+          <span class="tools">
+            <button class="mini primary" id="csvBtn" type="button" disabled>Export CSV</button>
+            <button class="mini" id="copyBtn" type="button" disabled>Copy table</button>
+          </span>
+        </div>
+        <div class="result" id="resultBox">
+          <div class="empty">The result table appears here.</div>
+        </div>
+        <details style="margin-top:14px">
+          <summary>Raw API response</summary>
+          <pre id="rawJson">No response yet.</pre>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <div id="caseModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="caseModalTitle">
+    <div class="modal-head">
+      <h2 id="caseModalTitle">Case details</h2>
+      <button id="caseModalClose" type="button">Close</button>
+    </div>
+    <div class="modal-body" id="caseModalBody"></div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const API_BASE = location.protocol === 'file:' ? 'http://localhost:3000' : '';
+    const allowedTags = new Set(['DIV','SPAN','P','BR','HR','STRONG','B','EM','I','H1','H2','H3','H4','UL','OL','LI','TABLE','THEAD','TBODY','TFOOT','TR','TH','TD']);
+    const SELECTS = { party_type: 'partyType', year: 'year', case_status: 'caseStatus' };
+    const aorMap = new Map();
+    let controller = null, tableRows = [], lastId = '';
+
+    function pick(obj, paths) {
+      for (const path of paths) {
+        let value = obj;
+        for (const key of path.split('.')) value = value?.[key];
+        if (value !== undefined && value !== null && value !== '') return value;
+      }
+      return null;
+    }
+
+    function calculate(text) {
+      if (!text) return null;
+      const compact = String(text).replace(/\s+/g, '').replace(/×/g, '*').replace(/÷/g, '/');
+      const m = compact.match(/^(-?\d+(?:\.\d+)?)([+\-*/])(-?\d+(?:\.\d+)?)=?$/);
+      if (!m) return null;
+      const a = Number(m[1]), b = Number(m[3]);
+      let n;
+      if (m[2] === '+') n = a + b;
+      else if (m[2] === '-') n = a - b;
+      else if (m[2] === '*') n = a * b;
+      else {
+        if (b === 0) return 'undefined (division by zero)';
+        n = a / b;
+      }
+      return Number.isFinite(n) ? String(Number(n.toFixed(10))) : null;
+    }
+
+    function setStatus(msg, kind) {
+      const s = $('status');
+      s.textContent = msg;
+      s.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function validUrl() {
+      const url = $('imageUrl').value.trim();
+      if (!url) return null;
+      try {
+        const p = new URL(url);
+        return ['http:', 'https:'].includes(p.protocol) ? p.href : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function showImage() {
+      const url = $('imageUrl').value.trim(), holder = $('imagePreview');
+      holder.replaceChildren();
+      $('imgNote').textContent = '';
+      if (!url) {
+        holder.innerHTML = '<span>Captcha image appears here</span>';
+        return Promise.resolve(false);
+      }
+      const href = validUrl();
+      if (!href) {
+        holder.textContent = 'Enter a valid HTTP or HTTPS image URL.';
+        return Promise.resolve(false);
+      }
+      return new Promise(resolve => {
+        const img = document.createElement('img');
+        const timer = setTimeout(() => resolve(false), 10000);
+        img.alt = 'Captcha image';
+        img.onload = () => { clearTimeout(timer); resolve(true); };
+        img.onerror = () => {
+          clearTimeout(timer);
+          holder.textContent = 'Image could not be loaded in the browser.';
+          resolve(false);
+        };
+        $('imgNote').textContent = 'Browser preview only. The server fetches its own copy when solving.';
+        holder.append(img);
+        img.src = href;
+      });
+    }
+
+    function showSolvedImage(src) {
+      const holder = $('imagePreview');
+      holder.replaceChildren();
+      const img = document.createElement('img');
+      img.alt = 'Image solved by the server';
+      img.src = src;
+      holder.append(img);
+      $('imgNote').textContent = 'Image the server solved for this result.';
+    }
+
+    function fillSelect(name, field) {
+      const sel = $(SELECTS[name]);
+      if (!field?.options?.length) return;
+      const previous = sel.value;
+      const options = field.options.filter(o => o.value !== '');
+      if (!options.length) return;
+      sel.replaceChildren();
+      for (const o of options) {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.text;
+        sel.append(opt);
+      }
+      const keep = options.find(o => o.value === previous) || options.find(o => o.selected) || options[0];
+      sel.value = keep.value;
+    }
+
+    const MENU_LIMIT = 100;
+    let aorList = [], aorMatches = [], aorCode = '2357', aorActive = 0, aorTyping = false;
+
+    function aorDisplayName(text, value) {
+      let n = text.replace(/\s*\[\d+\]\s*$/, '');
+      if (n.endsWith(value)) n = n.slice(0, n.length - value.length).replace(/[\s,\-]+$/, '');
+      return n || text;
+    }
+
+    function showAorCode() {
+      $('aorName').textContent = aorCode ? `AOR code: ${aorCode}` : '';
+    }
+
+    function fillAor(field) {
+      if (!field?.options?.length) return;
+      aorList = [];
+      aorMap.clear();
+      for (const o of field.options) {
+        if (o.value === '') continue;
+        const name = aorDisplayName(o.text, o.value);
+        aorList.push({ value: o.value, name, search: `${name} ${o.value}`.toLowerCase() });
+        aorMap.set(o.value, name);
+      }
+      $('aorInput').value = aorMap.get(aorCode) || aorCode;
+      showAorCode();
+    }
+
+    function filterAor() {
+      const q = aorTyping ? $('aorInput').value.trim().toLowerCase() : '';
+      const tokens = q.split(/\s+/).filter(Boolean);
+      aorMatches = tokens.length ? aorList.filter(o => tokens.every(t => o.search.includes(t))) : aorList;
+      const exact = aorMatches.findIndex(o => o.value === q);
+      if (exact > 0) aorMatches = [aorMatches[exact], ...aorMatches.slice(0, exact), ...aorMatches.slice(exact + 1)];
+    }
+
+    function updateAorActive() {
+      const items = [...$('aorMenu').querySelectorAll('li[role="option"]')];
+      items.forEach((li, i) => li.classList.toggle('active', i === aorActive));
+      items[aorActive]?.scrollIntoView({ block: 'nearest' });
+    }
+
+    function renderAorMenu() {
+      const menu = $('aorMenu');
+      menu.replaceChildren();
+      if (!aorList.length) { menu.hidden = true; return; }
+      filterAor();
+      const shown = aorMatches.slice(0, MENU_LIMIT);
+      const note = text => {
+        const li = document.createElement('li');
+        li.className = 'none';
+        li.textContent = text;
+        menu.append(li);
+      };
+      if (!shown.length) note('No AOR found');
+      shown.forEach(o => {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        const name = document.createElement('span');
+        name.textContent = o.name;
+        const code = document.createElement('span');
+        code.className = 'code';
+        code.textContent = o.value;
+        li.append(name, code);
+        li.addEventListener('mousedown', e => { e.preventDefault(); selectAor(o); });
+        menu.append(li);
+      });
+      if (aorMatches.length > shown.length) note(`Showing ${shown.length} of ${aorMatches.length}. Keep typing to narrow the list.`);
+      menu.hidden = false;
+      $('aorInput').setAttribute('aria-expanded', 'true');
+      aorActive = Math.min(aorActive, Math.max(shown.length - 1, 0));
+      updateAorActive();
+    }
+
+    function closeAorMenu(restore) {
+      $('aorMenu').hidden = true;
+      $('aorInput').setAttribute('aria-expanded', 'false');
+      if (restore && aorList.length) {
+        const typed = $('aorInput').value.trim();
+        if (aorTyping && aorMap.has(typed)) aorCode = typed;
+        $('aorInput').value = aorMap.get(aorCode) || aorCode;
+        showAorCode();
+      }
+      aorTyping = false;
+    }
+
+    function selectAor(o) {
+      aorCode = o.value;
+      $('aorInput').value = o.name;
+      showAorCode();
+      closeAorMenu(false);
+    }
+
+    function setupAorCombo() {
+      const input = $('aorInput');
+      input.addEventListener('focus', () => {
+        aorTyping = false;
+        aorActive = 0;
+        input.select();
+        renderAorMenu();
+      });
+      input.addEventListener('click', () => {
+        if ($('aorMenu').hidden) {
+          aorTyping = false;
+          aorActive = 0;
+          renderAorMenu();
+        }
+      });
+      input.addEventListener('input', () => {
+        aorTyping = true;
+        aorActive = 0;
+        if (!aorList.length) {
+          aorCode = input.value.trim();
+          showAorCode();
+        }
+        renderAorMenu();
+      });
+      input.addEventListener('keydown', e => {
+        const open = !$('aorMenu').hidden;
+        const count = Math.min(aorMatches.length, MENU_LIMIT);
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!open) { renderAorMenu(); return; }
+          if (!count) return;
+          aorActive = (aorActive + (e.key === 'ArrowDown' ? 1 : -1) + count) % count;
+          updateAorActive();
+        } else if (e.key === 'Enter') {
+          if (open && aorMatches[aorActive]) {
+            e.preventDefault();
+            selectAor(aorMatches[aorActive]);
+          }
+        } else if (e.key === 'Escape') {
+          closeAorMenu(true);
+        }
+      });
+      input.addEventListener('blur', () => closeAorMenu(true));
+    }
+
+    async function loadForm() {
+      const note = $('formNote');
+      try {
+        const res = await fetch(API_BASE + '/api/form-fields');
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'request failed');
+        const by = Object.fromEntries(data.fields.map(f => [f.name, f]));
+        for (const name of Object.keys(SELECTS)) fillSelect(name, by[name]);
+        fillAor(by.aor_code);
+        note.className = 'note';
+        note.textContent = `Form options loaded from sci.gov.in (${aorMap.size} AOR names).`;
+      } catch (err) {
+        note.className = 'note error';
+        note.textContent = `Could not load form options (${err.message}). Using the default values.`;
+      }
+    }
+
+    function getParams() {
+      return {
+        party_type: $('partyType').value,
+        aor_code: aorCode.trim(),
+        year: $('year').value,
+        case_status: $('caseStatus').value
+      };
+    }
+
+    function cleanHtml(html) {
+      const doc = new DOMParser().parseFromString(String(html), 'text/html');
+      function clean(node) {
+        const fragment = document.createDocumentFragment();
+        for (const child of [...node.childNodes]) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            fragment.append(document.createTextNode(child.textContent));
+            continue;
+          }
+          if (child.nodeType !== Node.ELEMENT_NODE) continue;
+          const tag = child.tagName;
+          if (!allowedTags.has(tag)) {
+            fragment.append(clean(child));
+            continue;
+          }
+          const safe = document.createElement(tag.toLowerCase());
+          for (const attr of ['colspan', 'rowspan', 'scope']) {
+            if (child.hasAttribute(attr)) safe.setAttribute(attr, child.getAttribute(attr));
+          }
+          safe.append(clean(child));
+          fragment.append(safe);
+        }
+        return fragment;
+      }
+      const box = document.createElement('div');
+      box.append(clean(doc.body));
+      return box.innerHTML;
+    }
+
+    function updatePredictions(items, text) {
+      const confs = Array.isArray(items) ? items.map(i => Number(i.confidence)).filter(Number.isFinite) : [];
+      const count = Array.isArray(items) && items.length ? items.length : [...String(text || '')].length;
+      $('predSummary').textContent = count
+        ? `Character predictions · ${count} chars` + (confs.length ? ` · avg ${(confs.reduce((a, b) => a + b, 0) / confs.length * 100).toFixed(1)}%` : '')
+        : 'Character predictions · none';
+      const holder = $('predictions');
+      holder.replaceChildren();
+      if (Array.isArray(items) && items.length) {
+        for (const item of items) {
+          const chip = document.createElement('div');
+          chip.className = 'chip';
+          const char = document.createElement('b');
+          char.textContent = item.character ?? item.label ?? '?';
+          const detail = document.createElement('small');
+          const confidence = Number(item.confidence);
+          detail.textContent = Number.isFinite(confidence)
+            ? `${(confidence * 100).toFixed(1)}%${item.source ? ` · ${item.source}` : ''}`
+            : (item.source || 'prediction');
+          chip.append(char, detail);
+          holder.append(chip);
+        }
+      } else if (text) {
+        for (const character of [...String(text)]) {
+          const chip = document.createElement('div');
+          chip.className = 'chip';
+          const b = document.createElement('b');
+          b.textContent = character;
+          chip.append(b);
+          holder.append(chip);
+        }
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'No prediction data in the response.';
+        holder.append(empty);
+      }
+    }
+
+    function showResultMessage(msg) {
+      const box = $('resultBox');
+      box.replaceChildren();
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = msg;
+      box.append(e);
+    }
+
+    function showLoading() {
+      const box = $('resultBox');
+      box.replaceChildren();
+      const wrap = document.createElement('div');
+      wrap.className = 'loading-box';
+      wrap.innerHTML = `
+        <div class="spinner"></div>
+        <div>Solving captcha & fetching results…</div>
+      `;
+      box.append(wrap);
+    }
+
+    function extractRows(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const rows = [];
+      doc.querySelectorAll('table').forEach(t => {
+        if (rows.length) rows.push([]);
+        t.querySelectorAll('tr').forEach(tr => {
+          const cells = [...tr.children].filter(c => /^(TD|TH)$/.test(c.tagName)).map(c => c.textContent.replace(/\s+/g, ' ').trim());
+          if (cells.length) rows.push(cells);
+        });
+      });
+      return rows;
+    }
+
+    function setTable(rows) {
+      tableRows = rows;
+      $('csvBtn').disabled = $('copyBtn').disabled = !rows.length;
+      $('rowCount').textContent = rows.length ? `· ${rows.filter(r => r.length).length} rows` : '';
+    }
+
+    function resetOutput() {
+      setTable([]);
+      $('expression').textContent = '—';
+      $('calculation').textContent = '—';
+      $('upstream').textContent = '—';
+      $('predSummary').textContent = 'Character predictions';
+      $('rawJson').textContent = 'No response yet.';
+      const holder = $('predictions');
+      holder.replaceChildren();
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No prediction data yet.';
+      holder.append(empty);
+      showResultMessage('The result table appears here.');
+    }
+
+    function render(data) {
+      $('rawJson').textContent = JSON.stringify(data, null, 2)
+        .replace(/"imageDataUrl": "[^"]{80,}"/, '"imageDataUrl": "(image data omitted)"');
+      lastId = data.scid || '';
+      if (typeof data.imageDataUrl === 'string' && data.imageDataUrl.startsWith('data:image/')) {
+        showSolvedImage(data.imageDataUrl);
+      }
+      const text = pick(data, ['predicted', 'text', 'expression', 'ocr.text', 'data.text', 'data.expression', 'result.text', 'result.expression']);
+      const answer = pick(data, ['calculated', 'calculation', 'answer', 'resultValue', 'data.calculation', 'data.answer']) ?? calculate(text);
+      $('expression').textContent = text ? String(text) : 'Not included';
+      $('expression').classList.toggle('small', String(text || '').length > 14);
+      $('calculation').textContent = answer !== null ? String(answer) : 'Not available';
+      $('upstream').textContent = data.apiStatus != null ? String(data.apiStatus) : '—';
+      updatePredictions(pick(data, ['predictions', 'ocr.predictions', 'data.predictions', 'result.predictions']), text);
+
+      const html = pick(data, ['apiResponse.data.resultsHtml', 'data.resultsHtml', 'resultsHtml', 'result.resultsHtml']);
+      if (typeof html === 'string' && html.trim()) {
+        const safe = cleanHtml(html);
+        $('resultBox').innerHTML = safe;
+        addViewButtons();
+        setTable(extractRows(safe));
+      } else {
+        setTable([]);
+        const msg = pick(data, ['apiResponse.data.message', 'apiResponse.message', 'error']);
+        showResultMessage(msg ? String(msg) : 'No result HTML in the response.');
+      }
+    }
+
+    function addViewButtons() {
+      $('resultBox').querySelectorAll('table').forEach(table => {
+        const headRow = table.querySelector('thead tr') || table.querySelector('tr');
+        if (!headRow) return;
+        const heads = [...headRow.children].map(c => c.textContent.trim().toLowerCase());
+        const diaryIdx = heads.findIndex(h => h.includes('diary'));
+        if (diaryIdx < 0) return;
+        let actionIdx = heads.findIndex(h => h.includes('action'));
+        if (actionIdx < 0) {
+          const th = document.createElement('th');
+          th.textContent = 'Action';
+          headRow.append(th);
+          actionIdx = heads.length;
+        }
+        table.querySelectorAll('tr').forEach(tr => {
+          const cells = [...tr.children];
+          if (tr === headRow || !cells.length || cells[0].tagName === 'TH') return;
+          const m = (cells[diaryIdx]?.textContent || '').match(/(\d+)\s*\/\s*(\d{4})/);
+          if (!m) return;
+          let cell = cells[actionIdx];
+          if (!cell) {
+            cell = document.createElement('td');
+            tr.append(cell);
+          }
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'mini primary';
+          btn.textContent = 'View';
+          btn.dataset.diaryNo = m[1];
+          btn.dataset.diaryYear = m[2];
+          cell.replaceChildren(btn);
+        });
+      });
+    }
+
+    let caseController = null;
+    let caseCtx = { diaryNo: '', diaryYear: '' };
+
+    function prettyTab(name) {
+      return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function renderCaseDetails(raw) {
+      const body = $('caseModalBody');
+      body.replaceChildren();
+
+      const main = document.createElement('div');
+      main.className = 'case-main';
+      main.innerHTML = cleanHtml(raw);
+      main.querySelectorAll('table').forEach(t => {
+        if (!t.querySelector('tbody td')) t.remove();
+      });
+      body.append(main);
+
+      const doc = new DOMParser().parseFromString(raw, 'text/html');
+      const tabs = [];
+      doc.querySelectorAll('[data-tab-name]').forEach(el => {
+        const name = el.getAttribute('data-tab-name');
+        if (!/^[a-z_]{1,50}$/.test(name || '') || tabs.some(t => t.name === name)) return;
+        const table = el.closest('table');
+        if (table && table.querySelector('tbody td')) return;
+        tabs.push({ name, label: el.textContent.replace(/\s+/g, ' ').trim() || prettyTab(name) });
+      });
+      if (!tabs.length) return;
+
+      const sec = document.createElement('div');
+      sec.className = 'case-sections';
+      const head = document.createElement('div');
+      head.className = 'sections-head';
+      const title = document.createElement('span');
+      title.textContent = 'More sections';
+      const openAll = document.createElement('button');
+      openAll.type = 'button';
+      openAll.className = 'mini';
+      openAll.textContent = 'Open all';
+      openAll.addEventListener('click', () => sec.querySelectorAll('details.tab').forEach(d => { d.open = true; }));
+      head.append(title, openAll);
+      sec.append(head);
+
+      for (const tab of tabs) {
+        const det = document.createElement('details');
+        det.className = 'tab';
+        det.dataset.tab = tab.name;
+        const sum = document.createElement('summary');
+        sum.textContent = tab.label;
+        const box = document.createElement('div');
+        box.className = 'tab-body';
+        det.append(sum, box);
+        det.addEventListener('toggle', () => { if (det.open) loadTab(det); });
+        sec.append(det);
+      }
+      body.append(sec);
+      body.scrollTop = 0;
+    }
+
+    function setTabMessage(box, text, isError) {
+      box.replaceChildren();
+      const d = document.createElement('div');
+      d.className = 'tab-msg' + (isError ? ' error' : '');
+      d.textContent = text;
+      box.append(d);
+      return d;
+    }
+
+    async function loadTab(det) {
+      if (det.dataset.state === 'loading' || det.dataset.state === 'done') return;
+      det.dataset.state = 'loading';
+      const box = det.querySelector('.tab-body');
+      setTabMessage(box, 'Loading…');
+      const { diaryNo, diaryYear } = caseCtx;
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/case-details?diary_no=${encodeURIComponent(diaryNo)}&diary_year=${encodeURIComponent(diaryYear)}&tab_name=${encodeURIComponent(det.dataset.tab)}`,
+          { signal: caseController?.signal }
+        );
+        const data = await res.json().catch(() => null);
+        if (!data) throw new Error(`non-JSON response (HTTP ${res.status})`);
+        const raw = typeof data.data === 'string' ? data.data : (data.data?.html ?? data.html);
+        if (typeof raw !== 'string' || !raw.trim()) {
+          det.dataset.state = data.success === false ? '' : 'done';
+          setTabMessage(box, data.error || data.message || 'No records found.', data.success === false);
+          return;
+        }
+        const doc = new DOMParser().parseFromString(raw, 'text/html');
+        doc.querySelectorAll('.caseDetailsTabHeading').forEach(r => r.remove());
+        box.innerHTML = cleanHtml(doc.body.innerHTML);
+        if (!box.textContent.trim()) setTabMessage(box, 'No records found.');
+        det.dataset.state = 'done';
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        det.dataset.state = '';
+        const msg = setTabMessage(box, `Could not load this section: ${err.message}`, true);
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'mini';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => loadTab(det));
+        msg.append(retry);
+      }
+    }
+
+    function showCaseMessage(text, isError) {
+      const body = $('caseModalBody');
+      body.replaceChildren();
+      const d = document.createElement('div');
+      d.className = 'msg' + (isError ? ' error' : '');
+      d.textContent = text;
+      body.append(d);
+    }
+
+    function closeCaseModal() {
+      if (caseController) caseController.abort();
+      $('caseModal').hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    async function openCaseDetails(diaryNo, diaryYear) {
+      caseCtx = { diaryNo, diaryYear };
+      $('caseModalTitle').textContent = `Case details · Diary No. ${diaryNo}/${diaryYear}`;
+      showCaseMessage('Loading case details…');
+      $('caseModal').hidden = false;
+      document.body.style.overflow = 'hidden';
+      $('caseModalClose').focus();
+      if (caseController) caseController.abort();
+      caseController = new AbortController();
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/case-details?diary_no=${encodeURIComponent(diaryNo)}&diary_year=${encodeURIComponent(diaryYear)}`,
+          { signal: caseController.signal }
+        );
+        const data = await res.json().catch(() => null);
+        if (!data) throw new Error(`Server returned a non-JSON response (HTTP ${res.status}).`);
+        const raw = typeof data.data === 'string' ? data.data : (data.data?.html ?? data.html);
+        if (typeof raw !== 'string' || !raw.trim()) {
+          showCaseMessage(data.error || data.message || 'No case details in the response.', true);
+          return;
+        }
+        renderCaseDetails(raw);
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        showCaseMessage(`Could not load case details: ${err.message}`, true);
+      }
+    }
+
+    function exportCsv() {
+      if (!tableRows.length) return;
+      const csv = tableRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `case-status-${lastId || Date.now()}.csv`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      setStatus(`Exported ${tableRows.length} rows to CSV.`, 'ok');
+    }
+
+    async function copyTable() {
+      if (!tableRows.length) return;
+      const tsv = tableRows.map(r => r.join('\t')).join('\n');
+      try {
+        await navigator.clipboard.writeText(tsv);
+        setStatus('Table copied. Paste it into Excel or Sheets.', 'ok');
+      } catch {
+        setStatus('Copy was blocked by the browser. Use Export CSV instead.', 'error');
+      }
+    }
+
+    async function solve() {
+      const imageUrl = validUrl();
+      if (!imageUrl) {
+        setStatus('Enter a valid HTTP or HTTPS image URL.', 'error');
+        return;
+      }
+      const params = getParams();
+      if (!params.aor_code) {
+        setStatus('Choose an AOR name or enter an AOR code.', 'error');
+        return;
+      }
+      if (controller) controller.abort();
+      controller = new AbortController();
+      const btn = $('solveButton');
+      btn.disabled = true;
+      btn.textContent = 'Solving…';
+      setStatus('Calling /solve-captcha…');
+      showLoading();                       // ← spinner starts here
+
+      try {
+        const res = await fetch(API_BASE + '/solve-captcha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl, ...params }),
+          signal: controller.signal
+        });
+        const data = await res.json().catch(() => null);
+        if (!data) throw new Error(`Server returned a non-JSON response (HTTP ${res.status}).`);
+        render(data);
+        if (data.success) {
+          setStatus(`Done. Upstream status: ${data.apiStatus ?? res.status}.`, 'ok');
+        } else {
+          setStatus(data.error || `Request failed (HTTP ${res.status}).`, 'error');
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        setStatus(`Could not reach the API: ${err.message}. Is the server running?`, 'error');
+        showResultMessage('Request failed. Please try again.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Solve captcha';
+      }
+    }
+
+    // Event listeners
+    $('solveButton').addEventListener('click', solve);
+    $('resultBox').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-diary-no]');
+      if (btn) openCaseDetails(btn.dataset.diaryNo, btn.dataset.diaryYear);
+    });
+    $('caseModalClose').addEventListener('click', closeCaseModal);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !$('caseModal').hidden) closeCaseModal();
+    });
+    $('csvBtn').addEventListener('click', exportCsv);
+    $('copyBtn').addEventListener('click', copyTable);
+    $('clearButton').addEventListener('click', () => {
+      $('imageUrl').value = 'https://www.sci.gov.in/?_siwp_captcha&id=dff2271c8e35bacdca94944fe1ff314fbea059eb';
+      showImage();
+      resetOutput();
+      setStatus('');
+      $('imageUrl').focus();
+    });
+
+    setupAorCombo();
+    showAorCode();
+
+    let previewTimer = null;
+    $('imageUrl').addEventListener('input', () => {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(showImage, 250);
+    });
+    $('imageUrl').addEventListener('change', showImage);
+
+    // Initial load – show the prefilled captcha
+    showImage();
+    loadForm();
+  </script>
+</body>
+</html>
