@@ -10,12 +10,15 @@ __pycache__/
 # Local configuration and secrets
 .env
 
-# Generated training and feedback images
+# Generated training, feedback, and downloaded sample images
 data/generated/
 data/generated_quick/
+data/samples/
 
-# Python training checkpoints (ONNX deployment models remain trackable)
+# Python training checkpoints and local candidate exports
 models/*.pt
+models/sample_candidate*/
+models/model.sample_candidate*
 
 # OS files
 .DS_Store

@@ -2,13 +2,18 @@ require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const cheerio = require('cheerio');
+const fs = require('node:fs/promises');
 const path = require('node:path');
 const { Recognizer } = require('./predict');
+const { evaluateExpression } = require('./solver');
+const { listSampleImages, resolveSampleFile, formatLabelsCsv, readLabelsCsv } = require('./samples');
 const { fetchAuthorizedImage, extractImageUrl, UrlImageError } = require('./url-image');
 const { saveVerifiedGlyphs } = require('./feedback');
 
 const app = express();
-app.use(express.json({ limit: '10kb' }));
+const defaultJson = express.json({ limit: '10kb' });
+const labelsJson = express.json({ limit: '1mb' });
+app.use((req, res, next) => (req.path === '/api/samples/labels' ? labelsJson : defaultJson)(req, res, next));
 app.use(express.text({ type: 'text/plain', limit: '2kb' }));
 
 const upload = multer({
@@ -18,26 +23,13 @@ const upload = multer({
 
 const recognizer = new Recognizer();
 const feedbackDirectory = path.resolve(process.env.FEEDBACK_DATA_DIR || 'data/generated');
+const samplesDirectory = path.resolve(process.env.SAMPLES_DIR || 'data/samples');
 app.disable('x-powered-by');
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36';
 const FORM_PAGE = 'https://www.sci.gov.in/case-status-aor-code/';
 
 /* ==================== Helpers ==================== */
-
-function evaluateExpression(text) {
-  if (!text || typeof text !== 'string') return null;
-  const cleaned = text.replace(/\s+/g, '').replace(/[^0-9+\-*/().]/g, '');
-  if (!/^\d+$/.test(cleaned) && !/^\d+[+\-*/]\d+$/.test(cleaned)) return null;
-  try {
-    // eslint-disable-next-line no-new-func
-    const result = Function(`"use strict"; return (${cleaned})`)();
-    if (typeof result !== 'number' || !Number.isFinite(result)) return null;
-    return Math.round(result);
-  } catch {
-    return null;
-  }
-}
 
 function extractScid(imageUrl) {
   if (!imageUrl) return null;
@@ -389,6 +381,45 @@ async function recognizeAndSave(buffer, expectedText) {
   return { ...publicResult, ...(hasVerifiedLabel ? { savedTrainingExamples } : {}) };
 }
 
+app.get('/label', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'label.html'));
+});
+
+app.get('/api/samples', async (_req, res) => {
+  try {
+    const files = await listSampleImages(samplesDirectory);
+    const labels = await readLabelsCsv(path.join(samplesDirectory, 'labels.csv'));
+    res.json({ success: true, files, labels });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/samples/image/:name', async (req, res) => {
+  try {
+    const filePath = resolveSampleFile(samplesDirectory, req.params.name);
+    await fs.access(filePath);
+    res.sendFile(filePath);
+  } catch (error) {
+    const status = error.code === 'ENOENT' ? 404 : 400;
+    res.status(status).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/samples/labels', async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    const csv = formatLabelsCsv(rows);
+    await fs.mkdir(samplesDirectory, { recursive: true });
+    const csvPath = path.join(samplesDirectory, 'labels.csv');
+    await fs.writeFile(csvPath, csv, 'utf8');
+    const savedCount = Math.max(0, csv.trim().split(/\r?\n/).length - 1);
+    res.json({ success: true, savedCount, path: 'data/samples/labels.csv', csv });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use((error, _req, res, _next) => {
@@ -399,6 +430,7 @@ async function start(port = Number(process.env.PORT || 3000)) {
   await recognizer.load();
   return app.listen(port, () => {
     console.log(`Local CNN API listening on http://localhost:${port}`);
+    console.log(`Labeling UI       → GET  http://localhost:${port}/label`);
     console.log(`New endpoint ready → POST http://localhost:${port}/solve-captcha`);
     console.log(`Form options      → GET  http://localhost:${port}/api/form-fields`);
     console.log(`Case details      → GET  http://localhost:${port}/api/case-details?diary_no=7850&diary_year=2024`);

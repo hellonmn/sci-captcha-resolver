@@ -138,32 +138,3 @@ The three supplied examples document one request of each type. They show no CAPT
 
 **Credential handling:** The pasted request examples included session-cookie and token values. They are not reproduced in this report. Treat them as exposed: invalidate the browser session (for example, sign out or clear the site's cookies) before continuing, and redact cookies, tokens, nonces, and challenge IDs from future samples.
 
-## Part B — Image solver
-
-### How the current code works
-
-The current CNN service is started by `npm start`, which runs `src/server.js`. The recognizer segments a horizontal image into glyphs, orders them left to right, and classifies each glyph as a digit or one of five arithmetic symbols. The image processing code is in `src/preprocess.js`; the prediction flow is in `src/predict.js`.
-
-The main model is a small CNN exported to ONNX and run locally on CPU. A local pretrained MNIST model is used as a fallback for low-confidence digit predictions. The training code creates synthetic character images with different fonts, sizes, rotations, contrast, noise, blur, and speckles.
-
-### Accuracy and coverage
-
-The saved training history reports **94.33% character accuracy** on a generated test split.
-
-These are character-level results on synthetic glyphs not on the sites captcha images. The project generated similar captcha images and then performed training.
-
-### Speed and memory
-
-The README records a benchmark snapshot with 500 runs and 20 warmups on a machine reporting 12 logical processors:
-
-| Measure | Recorded result |
-|---|---:|
-| Average total prediction time | 4.966 ms |
-| Model loading time | 141.56 ms |
-| Peak process memory | about 92.6 MiB |
-
-This is a recorded snapshot, not a verified four-core benchmark. It repeatedly used one supplied image, so it does not show performance across a varied image set.
-
-### Part B conclusion
-
-The project contains a local CNN character recognizer, synthetic data generation, ONNX inference, and a benchmark script. Current artifacts support only a provisional character-level accuracy result on synthetic images.

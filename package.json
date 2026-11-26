@@ -6,6 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/server.js",
+    "solve": "node src/solve.js",
+    "evaluate:samples": "node src/evaluate-samples.js",
+    "download-images": "node scripts/download-images.js",
     "benchmark": "node benchmarks/benchmark.js",
     "test": "node --test"
   },

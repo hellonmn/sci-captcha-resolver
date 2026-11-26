@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sample Image Labeler</title>
+  <style>
+    :root{
+      color-scheme:light;
+      --ink:#15233b;
+      --muted:#64748b;
+      --line:#dce4ee;
+      --blue:#245ce2;
+      --blue-dark:#1949c0;
+      --green:#147a57;
+      --green-bg:#eaf8f2;
+      --amber:#9a5b13;
+      --amber-bg:#fef6e6;
+      --paper:#f4f7fb;
+      --white:#ffffff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    header{
+      background:linear-gradient(115deg,#122b55,#245ce2);
+      color:#fff;
+      padding:12px max(20px,calc((100vw - 1200px)/2 + 20px));
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+    .brand h1{margin:0;font-size:18px;letter-spacing:-.02em}
+    .brand span{font-size:13px;color:#dce7ff}
+    .header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    main{max-width:1200px;margin:18px auto;padding:0 20px 44px;display:grid;gap:16px}
+
+    .card{background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 20px #18335b0a;overflow:hidden}
+    .card-head{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .card-head h2{margin:0;font-size:15px}
+    .card-body{padding:18px}
+
+    button,.btn-link{
+      border:0;
+      border-radius:9px;
+      background:var(--blue);
+      color:#fff;
+      font:600 13px/1.2 inherit;
+      padding:9px 14px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    button:hover,.btn-link:hover{background:var(--blue-dark)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    button.secondary,.btn-link.secondary{background:#edf2fa;color:#2c4160}
+    button.secondary:hover,.btn-link.secondary:hover{background:#dfe8f5}
+    button.ghost{background:#ffffff24;color:#fff}
+    button.ghost:hover{background:#ffffff3b}
+    button.success{background:var(--green);color:#fff}
+    button.success:hover{background:#0f6145}
+
+    .progress-bar-wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .progress-track{flex:1;min-width:180px;height:10px;background:#e6edf7;border-radius:999px;overflow:hidden}
+    .progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#245ce2,#147a57);transition:width .2s ease}
+    .progress-text{font-size:13px;font-weight:700;color:#2c4160;white-space:nowrap}
+
+    .workspace{display:grid;grid-template-columns:1.05fr 1fr;gap:20px;align-items:stretch}
+    .pane{display:flex;flex-direction:column;gap:12px}
+    .meta-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .file-pill{font:700 14px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;background:#eef3fb;padding:6px 10px;border-radius:8px;color:#1b3358}
+    .badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+    .badge.labeled{background:var(--green-bg);color:var(--green)}
+    .badge.unlabeled{background:var(--amber-bg);color:var(--amber)}
+
+    .image-stage{
+      flex:1;
+      min-height:240px;
+      border:1px dashed #c8d5e6;
+      border-radius:12px;
+      background:repeating-conic-gradient(#f8fafd 0% 25%, #eff4fa 0% 50%) 50% / 18px 18px;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      overflow:auto;
+    }
+    .image-stage img{
+      max-width:100%;
+      image-rendering:pixelated;
+      transform-origin:center;
+      transition:transform .12s ease;
+      border-radius:6px;
+      box-shadow:0 4px 14px #0f234214;
+      background:#fff;
+    }
+    .image-stage .empty{color:var(--muted);font-size:14px;text-align:center}
+
+    .zoom-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .zoom-group{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+    .chip-btn{padding:5px 10px;border-radius:7px;font-size:12px;background:#edf2fa;color:#2c4160}
+    .chip-btn.active{background:var(--blue);color:#fff}
+
+    label.field-label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#475569;margin-bottom:6px}
+    .expr-input{
+      width:100%;
+      border:2px solid #c7d4e5;
+      border-radius:11px;
+      padding:12px 14px;
+      font:700 24px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;
+      letter-spacing:.06em;
+      color:var(--ink);
+      outline:none;
+    }
+    .expr-input:focus{border-color:var(--blue);box-shadow:0 0 0 4px #245ce21f}
+
+    .quick-ops{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .op-btn{padding:7px 13px;font:700 15px/1 ui-monospace,SFMono-Regular,Consolas,monospace;background:#edf2fa;color:#1e3a6d}
+    .op-btn:hover{background:#dce6f7}
+
+    .split-preview{
+      background:#f8fafd;
+      border:1px solid var(--line);
+      border-radius:11px;
+      padding:12px;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+    .part-box{background:#fff;border:1px solid #e2e9f3;border-radius:8px;padding:7px 9px;text-align:center}
+    .part-box small{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+    .part-box strong{display:block;margin-top:2px;font:700 15px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;min-height:20px;word-break:break-all}
+
+    .action-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .hint{font-size:12px;color:var(--muted)}
+    .status-msg{font-size:13px;color:var(--muted);min-height:20px}
+    .status-msg.ok{color:var(--green);font-weight:600}
+    .status-msg.err{color:#b42318;font-weight:600}
+
+    .filter-tabs{display:flex;gap:6px;flex-wrap:wrap}
+    .filmstrip{display:flex;flex-wrap:wrap;gap:6px;max-height:175px;overflow:auto;padding-top:2px}
+    .thumb-pill{
+      border:1px solid #d5dfec;
+      background:#f8fafd;
+      color:#243b5e;
+      border-radius:8px;
+      padding:5px 9px;
+      font:600 12px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;
+      cursor:pointer;
+    }
+    .thumb-pill.done{background:var(--green-bg);border-color:#a5dfc6;color:var(--green)}
+    .thumb-pill.current{outline:2px solid var(--blue);outline-offset:1px;background:#eaf1ff;color:#133996}
+
+    table{border-collapse:collapse;width:100%;font-size:13px}
+    th,td{border:1px solid var(--line);padding:7px 10px;text-align:left}
+    th{background:#f1f5fb;font-size:12px;color:#3b4f6e}
+    td.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    .table-wrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+
+    @media(max-width:860px){
+      .workspace{grid-template-columns:1fr}
+      .split-preview{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Sample Image Labeler</h1>
+      <span>View image on the left, enter expression on the right, export CSV.</span>
+    </div>
+    <div class="header-actions">
+      <label class="btn-link secondary" style="cursor:pointer;background:#ffffff24;color:#fff">
+        Open local folder
+        <input id="folderInput" type="file" webkitdirectory multiple accept="image/*" hidden>
+      </label>
+      <button id="saveServerBtn" class="ghost" type="button">Save to data/samples/labels.csv</button>
+      <button id="exportCsvBtn" class="success" type="button">Export CSV</button>
+      <a class="btn-link ghost" href="/" style="background:#ffffff24;color:#fff">OCR Viewer</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="card-body">
+        <div class="progress-bar-wrap">
+          <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+          <div id="progressText" class="progress-text">0 / 0 labeled</div>
+          <div id="sourceLabel" class="hint">Source: server (data/samples)</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-body workspace">
+        <div class="pane">
+          <div class="meta-row">
+            <span id="filePill" class="file-pill">No image loaded</span>
+            <span id="indexLabel" class="hint">0 / 0</span>
+            <span id="labeledBadge" class="badge unlabeled">Unlabeled</span>
+          </div>
+          <div class="image-stage" id="imageStage">
+            <div class="empty">Loading images…</div>
+          </div>
+          <div class="zoom-row">
+            <div class="action-row">
+              <button id="prevBtn" class="secondary" type="button">← Prev</button>
+              <button id="nextBtn" class="secondary" type="button">Next →</button>
+              <button id="nextUnlabeledBtn" class="secondary" type="button">Next unlabeled</button>
+            </div>
+            <div class="zoom-group">
+              <span>Zoom:</span>
+              <button class="chip-btn" data-zoom="1" type="button">1x</button>
+              <button class="chip-btn active" data-zoom="2" type="button">2x</button>
+              <button class="chip-btn" data-zoom="3" type="button">3x</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane">
+          <div>
+            <label class="field-label" for="exprInput">Expression in image</label>
+            <input id="exprInput" class="expr-input" type="text" placeholder="e.g. 5+5 or 12-4" autocomplete="off" spellcheck="false">
+          </div>
+
+          <div class="quick-ops">
+            <span class="hint">Insert:</span>
+            <button class="op-btn" data-insert="+" type="button">+</button>
+            <button class="op-btn" data-insert="-" type="button">-</button>
+            <button class="op-btn" data-insert="×" type="button">×</button>
+            <button class="op-btn" data-insert="÷" type="button">÷</button>
+            <button id="clearInputBtn" class="secondary" type="button">Clear</button>
+          </div>
+
+          <div>
+            <label class="field-label">CSV Row Preview (Combined + 3 Split Parts)</label>
+            <div class="split-preview">
+              <div class="part-box"><small>expression</small><strong id="prevExpr">—</strong></div>
+              <div class="part-box"><small>left</small><strong id="prevLeft">—</strong></div>
+              <div class="part-box"><small>operator</small><strong id="prevOp">—</strong></div>
+              <div class="part-box"><small>right</small><strong id="prevRight">—</strong></div>
+              <div class="part-box"><small>value</small><strong id="prevVal">—</strong></div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button id="saveNextBtn" type="button">Save &amp; Next (Enter)</button>
+            <button id="skipBtn" class="secondary" type="button">Skip (Esc)</button>
+            <button id="removeLabelBtn" class="secondary" type="button">Remove label</button>
+          </div>
+
+          <div id="statusMsg" class="status-msg"></div>
+          <div class="hint">
+            Shortcuts: <b>Enter</b> saves &amp; advances to next unlabeled image ·
+            <b>Alt + ← / →</b> moves between images · <b>Esc</b> skips.
+            Typing <code>*</code> converts to <code>×</code> and <code>/</code> converts to <code>÷</code>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Image Queue</h2>
+        <div class="filter-tabs">
+          <button class="chip-btn active" data-filter="all" type="button">All</button>
+          <button class="chip-btn" data-filter="unlabeled" type="button">Unlabeled</button>
+          <button class="chip-btn" data-filter="labeled" type="button">Labeled</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="filmstrip" class="filmstrip"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Labeled Rows Preview (<span id="csvRowCount">0</span>)</h2>
+        <span class="hint">Columns: <code>file,expression,left,operator,right</code></span>
+      </div>
+      <div class="card-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>file</th>
+                <th>expression</th>
+                <th>left</th>
+                <th>operator</th>
+                <th>right</th>
+              </tr>
+            </thead>
+            <tbody id="csvTableBody">
+              <tr><td colspan="5" style="text-align:center;color:#64748b">No labeled images yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const STORAGE_KEY = 'ocr-api-sample-labels-v1';
+
+    let items = []; // [{ name, url }]
+    let labels = loadLocalLabels(); // { [filename]: expression }
+    let currentIndex = 0;
+    let currentFilter = 'all';
+    let currentZoom = 2;
+    let mode = 'server'; // 'server' | 'local'
+
+    function loadLocalLabels() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function persistLocalLabels() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(labels));
+      } catch {
+        // Ignore storage quota errors
+      }
+    }
+
+    function parseParts(raw) {
+      const cleaned = String(raw || '')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/=+$/, '')
+        .replace(/\*/g, '×')
+        .replace(/\//g, '÷');
+
+      if (!cleaned) return { expression: '', left: '', operator: '', right: '', value: null };
+      const m = cleaned.match(/^(-?\d+)([+\-×÷])(\d+)$/);
+      if (m) {
+        const a = Number(m[1]);
+        const b = Number(m[3]);
+        let value = null;
+        if (m[2] === '+') value = a + b;
+        else if (m[2] === '-') value = a - b;
+        else if (m[2] === '×') value = a * b;
+        else if (m[2] === '÷') value = b === 0 ? null : Math.round(a / b);
+        return { expression: cleaned, left: m[1], operator: m[2], right: m[3], value };
+      }
+      const s = cleaned.match(/^(-?\d+)$/);
+      if (s) {
+        return { expression: cleaned, left: s[1], operator: '', right: '', value: Number(s[1]) };
+      }
+      return { expression: cleaned, left: '', operator: '', right: '', value: null };
+    }
+
+    function setStatus(msg, kind = '') {
+      const el = $('statusMsg');
+      el.textContent = msg;
+      el.className = 'status-msg' + (kind ? ' ' + kind : '');
+    }
+
+    function escapeCsv(v) {
+      const s = String(v ?? '');
+      return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }
+
+    function buildRows() {
+      const rows = [];
+      for (const item of items) {
+        const raw = labels[item.name];
+        if (!raw) continue;
+        const p = parseParts(raw);
+        if (!p.expression) continue;
+        rows.push({
+          file: item.name,
+          expression: p.expression,
+          left: p.left,
+          operator: p.operator,
+          right: p.right
+        });
+      }
+      return rows;
+    }
+
+    function buildCsv(rows) {
+      const lines = ['file,expression,left,operator,right'];
+      for (const r of rows) {
+        lines.push([r.file, r.expression, r.left, r.operator, r.right].map(escapeCsv).join(','));
+      }
+      return lines.join('\n') + '\n';
+    }
+
+    function updateSplitPreview() {
+      const p = parseParts($('exprInput').value);
+      $('prevExpr').textContent = p.expression || '—';
+      $('prevLeft').textContent = p.left || '—';
+      $('prevOp').textContent = p.operator || '—';
+      $('prevRight').textContent = p.right || '—';
+      $('prevVal').textContent = p.value !== null ? String(p.value) : '—';
+    }
+
+    function renderProgressAndTable() {
+      const rows = buildRows();
+      const total = items.length;
+      const done = rows.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      $('progressFill').style.width = `${pct}%`;
+      $('progressText').textContent = `${done} / ${total} labeled (${pct}%)`;
+      $('csvRowCount').textContent = String(done);
+
+      const tbody = $('csvTableBody');
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b">No labeled images yet.</td></tr>';
+      } else {
+        tbody.innerHTML = rows.map((r) => (
+          `<tr>` +
+          `<td class="mono">${escapeHtml(r.file)}</td>` +
+          `<td class="mono">${escapeHtml(r.expression)}</td>` +
+          `<td class="mono">${escapeHtml(r.left)}</td>` +
+          `<td class="mono">${escapeHtml(r.operator)}</td>` +
+          `<td class="mono">${escapeHtml(r.right)}</td>` +
+          `</tr>`
+        )).join('');
+      }
+
+      renderFilmstrip();
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderFilmstrip() {
+      const strip = $('filmstrip');
+      strip.innerHTML = '';
+      items.forEach((item, idx) => {
+        const isDone = Boolean(labels[item.name]);
+        if (currentFilter === 'labeled' && !isDone) return;
+        if (currentFilter === 'unlabeled' && isDone) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'thumb-pill' + (isDone ? ' done' : '') + (idx === currentIndex ? ' current' : '');
+        btn.textContent = isDone ? `${item.name} (${labels[item.name]})` : item.name;
+        btn.addEventListener('click', () => selectIndex(idx));
+        strip.appendChild(btn);
+      });
+    }
+
+    function applyZoom() {
+      const img = $('imageStage').querySelector('img');
+      if (img) img.style.transform = `scale(${currentZoom})`;
+    }
+
+    function selectIndex(idx) {
+      if (items.length === 0) {
+        $('filePill').textContent = 'No images found';
+        $('indexLabel').textContent = '0 / 0';
+        $('imageStage').innerHTML = '<div class="empty">No images in data/samples/. Use "Open local folder" or run npm run download-images.</div>';
+        return;
+      }
+      currentIndex = Math.max(0, Math.min(items.length - 1, idx));
+      const item = items[currentIndex];
+      const existing = labels[item.name] || '';
+
+      $('filePill').textContent = item.name;
+      $('indexLabel').textContent = `${currentIndex + 1} / ${items.length}`;
+      $('labeledBadge').textContent = existing ? 'Labeled' : 'Unlabeled';
+      $('labeledBadge').className = 'badge ' + (existing ? 'labeled' : 'unlabeled');
+
+      $('imageStage').innerHTML = `<img src="${item.url}" alt="${escapeHtml(item.name)}">`;
+      applyZoom();
+
+      $('exprInput').value = existing;
+      updateSplitPreview();
+      $('exprInput').focus();
+      $('exprInput').select();
+      renderFilmstrip();
+    }
+
+    function nextUnlabeledIndex(fromIndex) {
+      for (let offset = 1; offset <= items.length; offset++) {
+        const idx = (fromIndex + offset) % items.length;
+        if (!labels[items[idx].name]) return idx;
+      }
+      return Math.min(items.length - 1, fromIndex + 1);
+    }
+
+    function saveCurrentAndAdvance() {
+      if (items.length === 0) return;
+      const item = items[currentIndex];
+      const p = parseParts($('exprInput').value);
+      if (!p.expression) {
+        setStatus('Type an expression first (or press Esc to skip).', 'err');
+        $('exprInput').focus();
+        return;
+      }
+      labels[item.name] = p.expression;
+      persistLocalLabels();
+      setStatus(`Saved ${item.name} → ${p.expression}`, 'ok');
+      renderProgressAndTable();
+
+      const nextIdx = nextUnlabeledIndex(currentIndex);
+      if (nextIdx === currentIndex && Object.keys(labels).length >= items.length) {
+        setStatus('All images labeled! Click "Export CSV" or "Save to data/samples/labels.csv".', 'ok');
+        selectIndex(currentIndex);
+      } else {
+        selectIndex(nextIdx);
+      }
+    }
+
+    async function loadFromServer() {
+      try {
+        const res = await fetch('/api/samples');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        mode = 'server';
+        $('sourceLabel').textContent = 'Source: server (data/samples)';
+        $('saveServerBtn').disabled = false;
+
+        items = (data.files || []).map((name) => ({
+          name,
+          url: `/api/samples/image/${encodeURIComponent(name)}`
+        }));
+
+        // Merge saved CSV labels on disk with any newer local edits
+        if (data.labels && typeof data.labels === 'object') {
+          labels = { ...data.labels, ...labels };
+          persistLocalLabels();
+        }
+
+        renderProgressAndTable();
+        const firstUnlabeled = items.findIndex((item) => !labels[item.name]);
+        selectIndex(firstUnlabeled >= 0 ? firstUnlabeled : 0);
+      } catch (err) {
+        $('imageStage').innerHTML = `<div class="empty">Could not load from server (${escapeHtml(err.message)}). Use "Open local folder" above.</div>`;
+      }
+    }
+
+    $('folderInput').addEventListener('change', (e) => {
+      const files = [...(e.target.files || [])]
+        .filter((f) => f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(f.name))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+      if (files.length === 0) {
+        setStatus('No image files found in the selected folder.', 'err');
+        return;
+      }
+      mode = 'local';
+      $('sourceLabel').textContent = `Source: local folder (${files.length} files)`;
+      $('saveServerBtn').disabled = true;
+      items = files.map((file) => ({ name: file.name, url: URL.createObjectURL(file) }));
+      renderProgressAndTable();
+      selectIndex(0);
+      setStatus(`Loaded ${files.length} local images.`, 'ok');
+    });
+
+    $('exprInput').addEventListener('input', updateSplitPreview);
+    $('exprInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveCurrentAndAdvance();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        selectIndex(nextUnlabeledIndex(currentIndex));
+      } else if ((e.altKey || e.ctrlKey) && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        selectIndex(currentIndex - 1);
+      } else if ((e.altKey || e.ctrlKey) && e.key === 'ArrowRight') {
+        e.preventDefault();
+        selectIndex(currentIndex + 1);
+      }
+    });
+
+    document.querySelectorAll('.op-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = $('exprInput');
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        const ch = btn.dataset.insert;
+        input.value = input.value.slice(0, start) + ch + input.value.slice(end);
+        input.setSelectionRange(start + ch.length, start + ch.length);
+        input.focus();
+        updateSplitPreview();
+      });
+    });
+
+    $('clearInputBtn').addEventListener('click', () => {
+      $('exprInput').value = '';
+      updateSplitPreview();
+      $('exprInput').focus();
+    });
+
+    $('saveNextBtn').addEventListener('click', saveCurrentAndAdvance);
+    $('skipBtn').addEventListener('click', () => selectIndex(nextUnlabeledIndex(currentIndex)));
+    $('prevBtn').addEventListener('click', () => selectIndex(currentIndex - 1));
+    $('nextBtn').addEventListener('click', () => selectIndex(currentIndex + 1));
+    $('nextUnlabeledBtn').addEventListener('click', () => selectIndex(nextUnlabeledIndex(currentIndex)));
+
+    $('removeLabelBtn').addEventListener('click', () => {
+      if (items.length === 0) return;
+      const item = items[currentIndex];
+      delete labels[item.name];
+      persistLocalLabels();
+      setStatus(`Removed label for ${item.name}.`);
+      renderProgressAndTable();
+      selectIndex(currentIndex);
+    });
+
+    document.querySelectorAll('[data-zoom]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentZoom = Number(btn.dataset.zoom);
+        document.querySelectorAll('[data-zoom]').forEach((b) => b.classList.toggle('active', b === btn));
+        applyZoom();
+      });
+    });
+
+    document.querySelectorAll('[data-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentFilter = btn.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach((b) => b.classList.toggle('active', b === btn));
+        renderFilmstrip();
+      });
+    });
+
+    $('exportCsvBtn').addEventListener('click', () => {
+      const rows = buildRows();
+      if (rows.length === 0) {
+        setStatus('Label at least one image before exporting CSV.', 'err');
+        return;
+      }
+      const csv = buildCsv(rows);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'labels.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setStatus(`Exported ${rows.length} rows to labels.csv`, 'ok');
+    });
+
+    $('saveServerBtn').addEventListener('click', async () => {
+      if (mode !== 'server') return;
+      const rows = buildRows();
+      if (rows.length === 0) {
+        setStatus('Label at least one image before saving.', 'err');
+        return;
+      }
+      try {
+        const res = await fetch('/api/samples/labels', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ rows })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+        setStatus(`Saved ${data.savedCount} rows to ${data.path}`, 'ok');
+      } catch (err) {
+        setStatus(`Failed to save: ${err.message}`, 'err');
+      }
+    });
+
+    loadFromServer();
+  </script>
+</body>
+</html>
